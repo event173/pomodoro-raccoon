@@ -3,6 +3,7 @@ import threading
 import os
 import platform
 import math
+import random
 
 # Timer settings
 work_duration = 25 * 60  # 25 minutes
