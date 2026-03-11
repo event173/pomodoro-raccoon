@@ -30,3 +30,6 @@ MANIFEST
 # OS
 .DS_Store
 Thumbs.db
+
+# Venv
+venv/*
