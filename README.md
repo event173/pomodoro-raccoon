@@ -1,15 +1,18 @@
 # 🦝 Pomodoro Raccoon 🍅
 
-Ein süßer Pomodoro-Timer mit ASCII-Waschbär-Animation für produktives Arbeiten!
+A cute CLI Pomodoro timer with ASCII raccoon animations to keep you productive!
 
 ## Features
 
-- 🍅 **25-Minuten Pomodoro-Timer** mit 5-Minuten Pausen
-- 🦝 **ASCII-Waschbär-Animationen** während der Sessions
-- 🎨 **Farbige Progress-Bar** mit verschiedenen Phasen
-- 🔊 **Plattform-native Signaltöne** (Linux & Windows)
-- 📱 **Motivierende Nachrichten** für jeden Fortschritt
-- ⏰ **Automatische Pause-Timer** nach jeder Session
+- 🍅 **Pomodoro sessions** with short (5 min) and long (25 min) breaks
+- 🔄 **Session tracking** — counts your Pomodoros and automatically offers a long break after every 4 sessions
+- 🦝 **ASCII raccoon animations** that switch every 5 seconds
+- 🎨 **Coloured progress bar** with phase-based colours
+- ⏱ **Live countdown** displayed alongside the animation
+- ⌨️ **Press Enter** to end a session early or skip a break — no Ctrl+C needed
+- 🔔 **Desktop notifications** when a session or break ends (Linux & macOS)
+- 🔊 **Sound alerts** on session start and end (Linux & Windows)
+- ⚙️ **Configurable durations** via CLI arguments
 
 ## Installation
 
@@ -17,30 +20,51 @@ Ein süßer Pomodoro-Timer mit ASCII-Waschbär-Animation für produktives Arbeit
 pip install pomodoro-raccoon
 ```
 
-## Verwendung
+## Usage
 
 ```bash
 pomodoro-raccoon
 ```
 
-Oder direkt in Python:
+Custom durations:
+```bash
+pomodoro-raccoon --work 50 --short-break 10 --long-break 30
+```
+
+Or directly in Python:
 ```python
 from pomodoro_raccoon import run
 run()
 ```
 
-## Screenshots
+## CLI Options
+
+| Option | Default | Description |
+|---|---|---|
+| `--work MIN` | 25 | Work session duration in minutes |
+| `--short-break MIN` | 5 | Short break duration in minutes |
+| `--long-break MIN` | 25 | Long break duration in minutes |
+
+## Preview
 
 ```
        🍅
-     (\_/)  
+     (\_/)
      ( •_•)
-     / >🍵   Fokus...
+     / >🍵   Focusing...
 
-[████████████████--------------] 67%
-💬 Weiter so, Champ! 🦝💪
+  Session 1
+  [████████████████--------------] 53%
+  ⏱  11:44 remaining
+  💬 Keep it up, champ! 🦝💪
+
+  [Press Enter to end session early]
 ```
 
-## Lizenz
+## Changelog
 
-MIT License - siehe [LICENSE](LICENSE) Datei.
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+
+## License
+
+MIT License — see [LICENSE](LICENSE).
