@@ -1,312 +1,318 @@
 import time
 import threading
-import os
 import platform
+import argparse
+import subprocess
+import sys
+import select
 
-# Timer settings
-work_duration = 25 * 60  # 25 minutes
-break_duration = 5 * 60  # 5 minutes break
+DEFAULT_WORK_MINUTES = 25
+DEFAULT_SHORT_BREAK_MINUTES = 5
+DEFAULT_LONG_BREAK_MINUTES = 25
+SESSIONS_BEFORE_LONG_BREAK = 4
 
-# Control flag
-is_running = False
 
 def play_sound(sound_type="beep"):
-    """
-    Spielt einen Signalton ab - funktioniert auf Linux und Windows
-    sound_type: "beep" für einfachen Piep, "start" für Timer-Start, "end" für Timer-Ende
-    """
     try:
         system = platform.system().lower()
-        
-        if sound_type == "start":
-            # Drei kurze Pieptöne für Start
-            for _ in range(3):
-                print('\a', end='', flush=True)
-                time.sleep(0.2)
-        elif sound_type == "end":
-            # Längerer Signalton für Ende
-            for _ in range(5):
-                print('\a', end='', flush=True)
-                time.sleep(0.3)
-        else:
-            # Einfacher Piep
-            print('\a', end='', flush=True)
-            
-        # Zusätzliche plattformspezifische Sounds
         if system == "linux":
             try:
-                # Versuche pactl (PulseAudio) für einen Signalton
-                os.system("pactl upload-sample /usr/share/sounds/alsa/Front_Left.wav bell >/dev/null 2>&1")
-                os.system("pactl play-sample bell >/dev/null 2>&1")
-            except:
+                subprocess.run(
+                    ["aplay", "-q", "/usr/share/sounds/alsa/Front_Left.wav"],
+                    capture_output=True, timeout=2,
+                )
+            except Exception:
                 pass
+            beeps = {"start": 2, "end": 4}.get(sound_type, 1)
+            for _ in range(beeps):
+                print('\a', end='', flush=True)
+                time.sleep(0.2)
         elif system == "windows":
             try:
                 import winsound
-                if sound_type == "start":
-                    winsound.MessageBeep(winsound.MB_OK)
-                elif sound_type == "end":
-                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-                else:
-                    winsound.MessageBeep()
+                winsound.MessageBeep(
+                    winsound.MB_ICONEXCLAMATION if sound_type == "end" else winsound.MB_OK
+                )
             except ImportError:
-                pass
-                
+                print('\a', end='', flush=True)
+        else:
+            print('\a', end='', flush=True)
     except Exception:
-        # Fallback: Einfacher ASCII-Bell
         print('\a', end='', flush=True)
 
-# ASCII frames (Waschbär mit Tomato)
-frames = [
+
+def send_notification(title, message):
+    try:
+        system = platform.system().lower()
+        if system == "linux":
+            subprocess.run(["notify-send", "-t", "5000", title, message],
+                           capture_output=True, timeout=3)
+        elif system == "darwin":
+            subprocess.run(
+                ["osascript", "-e",
+                 f'display notification "{message}" with title "{title}"'],
+                capture_output=True, timeout=3,
+            )
+    except Exception:
+        pass
+
+
+work_frames = [
     r"""
        🍅
-     (\_/)  
+     (\_/)
      ( •_•)
-     / >🍵   Fokus...
+     / >🍵   Focusing...
     """,
     r"""
        🍅
-     (\_/)  
+     (\_/)
      ( •_•)👉
-     / > 🍵  Umblättern...
+     / > 🍵  Deep work...
     """,
     r"""
        🍅
-     (\_/)  
+     (\_/)
      ( •o•)
-     / > 🍵  Ups!
+     / > 🍵  Oops!
     """,
     r"""
        🍅
-     (\_/)  
+     (\_/)
      ( -_-) zzz
-     / > 🍵  Nap...
+     / > 🍵  Napping...
     """,
     r"""
        🍅
-     (\_/)  
+     (\_/)
      ( •_•)☕
-     / > 📖  Kaffee!
+     / > 📖  Coffee!
     """,
     r"""
        🍅
      (\_/)✨
      ( •‿•)
-     / >🍰   Geschafft!
-    """
+     / >🍰   Almost done!
+    """,
 ]
 
-# Pause frames (Waschbär in der Pause)
 break_frames = [
     r"""
        ☕
-     (\_/)  
+     (\_/)
      ( -_-) zzz
-     / > 🛋️   Entspannen...
+     / > 🛋️   Resting...
     """,
     r"""
        ☕
-     (\_/)  
+     (\_/)
      ( •‿•)
-     / > 🍪   Snack-Zeit!
+     / > 🍪   Snack time!
     """,
     r"""
        ☕
-     (\_/)  
+     (\_/)
      ( ^_^)
-     / > 📱   Social Media
+     / > 📱   Scroll away
     """,
     r"""
        ☕
-     (\_/)  
+     (\_/)
      ( •o•)
-     / > 🚶   Kurzer Walk
+     / > 🚶   Short walk
     """,
     r"""
        ☕
      (\_/)✨
      ( •_•)
-     / > 💧   Wasser trinken
+     / > 💧   Stay hydrated
     """,
     r"""
        ☕
-     (\_/)  
+     (\_/)
      ( >_<)
-     / > ⏰   Gleich weiter!
-    """
+     / > ⏰   Almost back!
+    """,
 ]
 
-def show_animation(stop_event, total_seconds, is_break=False):
-    frame_index = 0
-    progress_bar_length = 30
-    elapsed = 0
-    
-    # Wähle richtige Frames basierend auf Timer-Typ
-    current_frames = break_frames if is_break else frames
 
-    while not stop_event.is_set() and elapsed <= total_seconds:
-        percent = elapsed / total_seconds
-        filled = int(progress_bar_length * percent)
-        
-        # Farbige Progress Bar - für Pause andere Farben
-        if is_break:
-            # Pause: Entspannende Farben
-            if percent <= 0.25:  # 0-25%: Blau (entspannend)
-                filled_bar = f"\033[96m{'█' * filled}\033[0m"  # Cyan
-            elif percent <= 0.50:  # 25-50%: Grün (erholsam)
-                filled_bar = f"\033[92m{'█' * filled}\033[0m"  # Grün
-            elif percent <= 0.75:  # 50-75%: Gelb (Warnung)
-                filled_bar = f"\033[93m{'█' * filled}\033[0m"  # Gelb
-            else:  # 75-100%: Orange (bald zurück zur Arbeit)
-                filled_bar = f"\033[91m{'█' * filled}\033[0m"  # Rot
-        else:
-            # Arbeit: Original Farben
-            if percent <= 0.25:  # 0-25%: Rot
-                filled_bar = f"\033[91m{'█' * filled}\033[0m"  # Rot
-            elif percent <= 0.50:  # 25-50%: Gelb
-                filled_bar = f"\033[93m{'█' * filled}\033[0m"  # Gelb
-            elif percent <= 0.75:  # 50-75%: Blau
-                filled_bar = f"\033[94m{'█' * filled}\033[0m"  # Blau
-            else:  # 75-100%: Grün
-                filled_bar = f"\033[92m{'█' * filled}\033[0m"  # Grün
-            
-        bar = filled_bar + "-" * (progress_bar_length - filled)
+def get_color(percent, is_break):
+    if is_break:
+        if percent <= 0.25: return "\033[96m"
+        elif percent <= 0.50: return "\033[92m"
+        elif percent <= 0.75: return "\033[93m"
+        else: return "\033[91m"
+    else:
+        if percent <= 0.25: return "\033[91m"
+        elif percent <= 0.50: return "\033[93m"
+        elif percent <= 0.75: return "\033[94m"
+        else: return "\033[92m"
+
+
+def get_quote(percent_display, is_break):
+    if is_break:
+        if percent_display <= 25: return "💬 Time to relax! 😌"
+        elif percent_display <= 50: return "💬 Enjoy your break! 🛋️"
+        elif percent_display <= 75: return "💬 Almost done resting... 🕐"
+        else: return "💬 Back to work soon! 🔔"
+    else:
+        if percent_display <= 25: return "💬 Focus, focus, focus! 🎯"
+        elif percent_display <= 50: return "💬 Keep it up, champ! 🦝💪"
+        elif percent_display <= 75: return "💬 Almost there! 🚀"
+        else: return "💬 Final stretch! You've got this! 🤘"
+
+
+def show_animation(stop_event, total_seconds, session_num, is_break=False):
+    frame_index = 0
+    tick = 0
+    bar_length = 30
+    start_time = time.time()
+    current_frames = break_frames if is_break else work_frames
+
+    while not stop_event.is_set():
+        elapsed = time.time() - start_time
+        remaining = max(0.0, total_seconds - elapsed)
+        percent = min(elapsed / total_seconds, 1.0)
+        filled = int(bar_length * percent)
         percent_display = int(percent * 100)
 
-        # Select motivational message basierend auf Timer-Typ
-        if is_break:
-            if percent_display <= 25:
-                quote = "💬 Zeit zum Entspannen! 😌"
-            elif percent_display <= 50:
-                quote = "💬 Gönn dir die Pause! 🛋️"
-            elif percent_display <= 75:
-                quote = "💬 Noch etwas Zeit... 🕐"
-            elif percent_display < 100:
-                quote = "💬 Gleich geht's weiter! 🔔"
-            else:
-                quote = "💬 Pause vorbei! Let's go! 🚀"
-        else:
-            if percent_display <= 25:
-                quote = "💬 Fokus, Fokus, Fokus! 🎯"
-            elif percent_display <= 50:
-                quote = "💬 Weiter so, Champ! 🦝💪"
-            elif percent_display <= 75:
-                quote = "💬 Gleich geschafft! 🚀"
-            elif percent_display < 100:
-                quote = "💬 Endspurt! Du rockst das! 🤘"
-            else:
-                quote = "💬 BOOM! Geschafft! 🎉"
+        color = get_color(percent, is_break)
+        bar = f"{color}{'█' * filled}\033[0m" + "-" * (bar_length - filled)
+        quote = get_quote(percent_display, is_break)
+        mins, secs = divmod(int(remaining), 60)
+        label = "Break" if is_break else f"Session {session_num}"
 
-        # Clear screen + print frame
-        print("\033c", end="")  # works on most terminals
+        print("\033c", end="")
         print(current_frames[frame_index % len(current_frames)])
-        print(f"[{bar}] {percent_display}%")
-        print(quote)
+        print(f"  {label}")
+        print(f"  [{bar}] {percent_display}%")
+        print(f"  ⏱  {mins:02}:{secs:02} remaining")
+        print(f"  {quote}")
+        hint = "skip break" if is_break else "end session early"
+        print(f"\n  [Press Enter to {hint}]")
 
-        time.sleep(10)  # Geändert von 2 auf 10 Sekunden
-        elapsed += 10   # Geändert von 2 auf 10 Sekunden
-        frame_index += 1
+        time.sleep(1)
+        tick += 1
+        if tick % 5 == 0:
+            frame_index += 1
 
-def start_break_timer():
-    global is_running
-    is_running = True
+
+def check_for_enter(timeout):
+    """Return True if Enter is pressed before timeout, False otherwise."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+        if ready:
+            sys.stdin.readline()
+            return True
+    return False
+
+
+def run_timer(duration, session_num=1, is_break=False):
     stop_event = threading.Event()
-    
-    print("🛋️ Pausentimer startet in 3 Sekunden...")
-    time.sleep(1)
-    print("3...")
-    time.sleep(1)
-    print("2...")
-    time.sleep(1) 
-    print("1...")
-    time.sleep(1)
-    print("☕ PAUSE GESTARTET! ☕")
-    play_sound("start")  # Signalton beim Pause-Start
-
-    # Start break animation thread
-    anim_thread = threading.Thread(target=show_animation, args=(stop_event, break_duration, True))
+    anim_thread = threading.Thread(
+        target=show_animation,
+        args=(stop_event, duration, session_num, is_break),
+        daemon=True,
+    )
     anim_thread.start()
-
     try:
-        for remaining in range(break_duration, 0, -1):
-            if not is_running:
-                break
-            mins, secs = divmod(remaining, 60)
-            print(f"Break time left: {mins:02}:{secs:02}", end="\r")
-            time.sleep(1)
-        if is_running:
-            print("\n🔔 Pause ist vorbei! Zurück an die Arbeit! 🔔🍅")
-            play_sound("end")  # Signalton beim Pause-Ende
+        check_for_enter(duration)
     except KeyboardInterrupt:
-        print("\n[!] Pausentimer unterbrochen.")
+        raise
     finally:
-        is_running = False
         stop_event.set()
         anim_thread.join()
-        
-        # Bildschirm leeren vor Rückkehr zum Hauptmenü
-        time.sleep(2)  # Kurze Pause um die Nachricht zu lesen
-        print("\033c", end="")  # Clear screen
 
-def start_pomodoro_timer():
-    global is_running
-    is_running = True
-    stop_event = threading.Event()
-    
-    print("🦝 Timer startet in 3 Sekunden...")
-    time.sleep(1)
-    print("3...")
-    time.sleep(1)
-    print("2...")
-    time.sleep(1) 
-    print("1...")
-    time.sleep(1)
-    print("🍅 POMODORO GESTARTET! 🍅")
-    play_sound("start")  # Signalton beim Start
 
-    # Start animation thread
-    anim_thread = threading.Thread(target=show_animation, args=(stop_event, work_duration, False))
-    anim_thread.start()
+def main_menu(work_mins, short_break_mins, long_break_mins):
+    session_count = 0
 
-    try:
-        for remaining in range(work_duration, 0, -1):
-            if not is_running:
-                break
-            mins, secs = divmod(remaining, 60)
-            print(f"Time left: {mins:02}:{secs:02}", end="\r")
-            time.sleep(1)
-        if is_running:
-            print("\n🎉 Arbeitszeit ist um! Nimm dir eine 5-Minuten-Pause! 🎉🍅")
-            play_sound("end")  # Signalton beim Ende
-            
-            # Automatisch Pausentimer starten
-            time.sleep(2)  # Kurze Pause zwischen den Timern
-            start_break_timer()  # Automatischer Pausentimer
-            
-    except KeyboardInterrupt:
-        print("\n[!] Timer unterbrochen.")
-    finally:
-        is_running = False
-        stop_event.set()
-        anim_thread.join()
-        # Bildschirm leeren vor Rückkehr zum Hauptmenü  
-        print("\033c", end="")  # Clear screen
-        print("Zurück zum Hauptmenü...\n")
-
-def main_menu():
     while True:
-        print("\nWelcome to the Pomodoro Timer! 🦝🍅")
-        print("1. Start Pomodoro Timer")
-        print("2. Exit")
-        choice = input("Enter your choice (1 or 2): ")
+        in_cycle = session_count % SESSIONS_BEFORE_LONG_BREAK
+        dots = "🍅" * in_cycle + "○" * (SESSIONS_BEFORE_LONG_BREAK - in_cycle)
+
+        print("\033c", end="")
+        print(f"  🦝 Pomodoro Raccoon 🍅\n")
+        print(f"  Progress: {dots}  ({session_count} completed)")
+        print(f"\n  1. Start Pomodoro    ({work_mins} min)")
+        print(f"  2. Short break       ({short_break_mins} min)")
+        print(f"  3. Long break        ({long_break_mins} min)")
+        print(f"  4. Exit")
+
+        choice = input("\n  Choice: ").strip()
 
         if choice == '1':
-            start_pomodoro_timer()
+            try:
+                print("\n  🦝 Starting in...")
+                for n in range(3, 0, -1):
+                    print(f"  {n}...")
+                    time.sleep(1)
+                play_sound("start")
+
+                run_timer(work_mins * 60, session_num=session_count + 1)
+                session_count += 1
+
+                play_sound("end")
+                send_notification("🍅 Pomodoro Complete!",
+                                  f"Session {session_count} done. Time for a break!")
+
+                is_long = session_count % SESSIONS_BEFORE_LONG_BREAK == 0
+                break_label = "long" if is_long else "short"
+                break_dur = long_break_mins if is_long else short_break_mins
+
+                print("\033c", end="")
+                print(f"\n  🎉 Session {session_count} complete!")
+                if is_long:
+                    print(f"  You've earned a long break ({break_dur} min)! 🎊")
+                else:
+                    print(f"  Time for a short break ({break_dur} min).")
+
+                ans = input(f"\n  Start {break_label} break? [Y/n]: ").strip().lower()
+                if ans != 'n':
+                    play_sound("start")
+                    run_timer(break_dur * 60, session_num=session_count, is_break=True)
+                    play_sound("end")
+                    send_notification("⏰ Break Over!", "Time to get back to work! 🦝")
+
+            except KeyboardInterrupt:
+                print("\n\n  [Session interrupted]")
+                time.sleep(1)
+
         elif choice == '2':
-            print("Goodbye! 👋")
+            try:
+                play_sound("start")
+                run_timer(short_break_mins * 60, is_break=True)
+                play_sound("end")
+            except KeyboardInterrupt:
+                print("\n\n  [Break interrupted]")
+                time.sleep(1)
+
+        elif choice == '3':
+            try:
+                play_sound("start")
+                run_timer(long_break_mins * 60, is_break=True)
+                play_sound("end")
+            except KeyboardInterrupt:
+                print("\n\n  [Break interrupted]")
+                time.sleep(1)
+
+        elif choice == '4':
+            print(f"\n  Goodbye! 👋  ({session_count} sessions completed)\n")
             break
-        else:
-            print("Invalid choice. Please try again.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Pomodoro Raccoon - CLI Pomodoro timer 🦝")
+    parser.add_argument("--work", type=int, default=DEFAULT_WORK_MINUTES,
+                        metavar="MIN", help=f"Work duration in minutes (default: {DEFAULT_WORK_MINUTES})")
+    parser.add_argument("--short-break", type=int, default=DEFAULT_SHORT_BREAK_MINUTES,
+                        metavar="MIN", help=f"Short break in minutes (default: {DEFAULT_SHORT_BREAK_MINUTES})")
+    parser.add_argument("--long-break", type=int, default=DEFAULT_LONG_BREAK_MINUTES,
+                        metavar="MIN", help=f"Long break in minutes (default: {DEFAULT_LONG_BREAK_MINUTES})")
+    args = parser.parse_args()
+    main_menu(args.work, args.short_break, args.long_break)
+
 
 if __name__ == "__main__":
-    main_menu()
+    main()
