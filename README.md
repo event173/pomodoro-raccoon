@@ -1,4 +1,4 @@
-# 🦝 Pomodoro Racoon 🍅
+# 🦝 Pomodoro Raccoon 🍅
 
 Ein süßer Pomodoro-Timer mit ASCII-Waschbär-Animation für produktives Arbeiten!
 
@@ -14,18 +14,18 @@ Ein süßer Pomodoro-Timer mit ASCII-Waschbär-Animation für produktives Arbeit
 ## Installation
 
 ```bash
-pip install pomodoro-racoon
+pip install pomodoro-raccoon
 ```
 
 ## Verwendung
 
 ```bash
-pomodoro-racoon
+pomodoro-raccoon
 ```
 
 Oder direkt in Python:
 ```python
-from pomodoro_racoon import run
+from pomodoro_raccoon import run
 run()
 ```
 

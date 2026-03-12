@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="pomodoro-racoon",
+    name="pomodoro-raccoon",
     version="0.1.3",
     author="Nick Witmar",
     author_email="nickwitmar@gmail.com",
@@ -28,10 +28,10 @@ setup(
     python_requires=">=3.8",
     entry_points={
         "console_scripts": [
-            "pomodoro-racoon=pomodoro_racoon:run",
+            "pomodoro-raccoon=pomodoro_raccoon:run",
         ],
     },
-    keywords="pomodoro timer productivity ascii animation racoon",
+    keywords="pomodoro timer productivity ascii animation raccoon",
     project_urls={
         "Bug Reports": "https://github.com/event173/pomodoro-racoon/issues",
         "Source": "https://github.com/event173/pomodoro-racoon",

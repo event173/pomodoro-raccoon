@@ -1,5 +1,5 @@
 """
-Pomodoro Racoon - Ein simpler Pomodoro-Timer mit ASCII-Waschbär-Animation
+Pomodoro Raccoon - Ein simpler Pomodoro-Timer mit ASCII-Waschbär-Animation
 """
 
 __version__ = "0.1.0"
