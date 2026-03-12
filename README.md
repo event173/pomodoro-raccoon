@@ -29,6 +29,11 @@ sudo apt install pipx
 
 # macOS
 brew install pipx
+
+# Windows (run in PowerShell)
+pip install pipx
+pipx ensurepath
+# Restart your terminal after running ensurepath
 ```
 
 Alternatively with pip (inside a virtual environment):
