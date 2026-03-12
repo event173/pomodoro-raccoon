@@ -16,6 +16,8 @@ jobs:
             artifact: pomodoro-raccoon-linux
           - os: macos-latest
             artifact: pomodoro-raccoon-macos
+          - os: windows-latest
+            artifact: pomodoro-raccoon-windows.exe
     steps:
       - uses: actions/checkout@v4
 
@@ -29,9 +31,13 @@ jobs:
       - name: Build binary
         run: pyinstaller --onefile --name pomodoro-raccoon pomodoro_raccoon/main.py
 
-      - name: Rename binary
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
         run: mv dist/pomodoro-raccoon dist/${{ matrix.artifact }}
-        shell: bash
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: mv dist/pomodoro-raccoon.exe dist/${{ matrix.artifact }}
 
       - uses: actions/upload-artifact@v4
         with:

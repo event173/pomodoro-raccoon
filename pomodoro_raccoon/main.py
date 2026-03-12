@@ -200,12 +200,20 @@ def show_animation(stop_event, total_seconds, session_num, is_break=False):
 def check_for_enter(timeout):
     """Return True if Enter is pressed before timeout, False otherwise."""
     deadline = time.time() + timeout
-    while time.time() < deadline:
-        ready, _, _ = select.select([sys.stdin], [], [], 0.5)
-        if ready:
-            sys.stdin.readline()
-            return True
-    return False
+    if platform.system().lower() == 'windows':
+        import msvcrt
+        while time.time() < deadline:
+            if msvcrt.kbhit():
+                if msvcrt.getwch() in ('\r', '\n'):
+                    return True
+            time.sleep(0.1)
+        return False
+    else:
+        while time.time() < deadline:
+            if select.select([sys.stdin], [], [], 0.5)[0]:
+                sys.stdin.readline()
+                return True
+        return False
 
 
 def run_timer(duration, session_num=1, is_break=False):
