@@ -1,30 +1,74 @@
-name: Upload Python Package
+name: Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'  # z.B. v1.0.0
+      - 'v*.*.*'
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  build-binaries:
+    name: Build binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: pomodoro-raccoon-linux
+          - os: macos-latest
+            artifact: pomodoro-raccoon-macos
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade build twine
+      - name: Install PyInstaller
+        run: pip install pyinstaller
 
-    - name: Build package
-      run: python -m build
+      - name: Build binary
+        run: pyinstaller --onefile --name pomodoro-raccoon pomodoro_raccoon/main.py
 
-    - name: Publish package
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_POMODORO_API_TOKEN }}
-      run: twine upload dist/*
+      - name: Rename binary
+        run: mv dist/pomodoro-raccoon dist/${{ matrix.artifact }}
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  release:
+    name: Publish & Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build PyPI package
+        run: |
+          pip install --upgrade build twine
+          python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_POMODORO_API_TOKEN }}
+        run: twine upload dist/*
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: binaries/*
