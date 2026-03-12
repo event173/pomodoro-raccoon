@@ -16,6 +16,22 @@ A cute CLI Pomodoro timer with ASCII raccoon animations to keep you productive!
 
 ## Installation
 
+The recommended way to install CLI tools is with **pipx**, which keeps everything isolated without needing to manage a venv manually:
+
+```bash
+pipx install pomodoro-raccoon
+```
+
+Don't have pipx? Install it first:
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt install pipx
+
+# macOS
+brew install pipx
+```
+
+Alternatively with pip (inside a virtual environment):
 ```bash
 pip install pomodoro-raccoon
 ```
@@ -29,12 +45,6 @@ pomodoro-raccoon
 Custom durations:
 ```bash
 pomodoro-raccoon --work 50 --short-break 10 --long-break 30
-```
-
-Or directly in Python:
-```python
-from pomodoro_raccoon import run
-run()
 ```
 
 ## CLI Options
