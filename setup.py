@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="pomodoro-raccoon",
-    version="0.1.3",
+    version="0.2.0",
     author="Nick Witmar",
     author_email="nickwitmar@gmail.com",
     description="Ein simpler Pomodoro-Timer mit ASCII-Waschbär-Animation",
